@@ -380,6 +380,7 @@ font-family:var(-mono);font-size:10px;text-align:right;flex-shrink:0;
 .snowball-days{color:var(--green);font-weight:700;white-space:nowrap;}
 .snowball-detail{color:var(--text3);font-size:9px;text-align:right;white-space:nowrap;}
 .snowball-more{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--text2);line-height:1.6;}
+.snowball-toggle{width:100%;margin-top:10px;padding:9px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--cyan);font-family:var(--mono);font-size:10px;cursor:pointer;letter-spacing:.04em;}
 
 </style>
 
@@ -1727,6 +1728,8 @@ function renderProfitHistory() {
   box.innerHTML = `<div style="overflow-x:auto;"><table class="history-table"><thead><tr><th>Próg</th><th>Osiągnięty</th><th>Czas od poprzedniego</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
 
+let snowballExpanded = false;
+
 function renderSnowball() {
   const box = document.getElementById('snowball-content');
   if (!box) return;
@@ -1743,17 +1746,26 @@ function renderSnowball() {
   html += `<div class="snowball-hero-val">${formatDays(baseDays)}</div>`;
   html += `<div class="snowball-hero-sub">tempo: +${totalDaily.toFixed(4)} PLN / dzień</div></div>`;
 
-  const rows = bonds.map(b => {
+  // Najnowsze pozycje są na górze — według daty zakupu.
+  const sortedBonds = [...bonds].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const visibleBonds = snowballExpanded ? sortedBonds : sortedBonds.slice(0, 3);
+
+  const rows = visibleBonds.map(b => {
     const without = bonds.filter(x => x.id !== b.id);
     const dailyWithout = without.reduce((sum, x) => sum + calcDailyIncome(x, inflation), 0);
     const daysWithout = dailyWithout > 0 ? Math.ceil(remaining / dailyWithout) : null;
     const saving = (daysWithout !== null && baseDays !== null) ? Math.max(0, daysWithout - baseDays) : null;
-    return `<div class="snowball-row"><div style="min-width:0;flex:1;"><div class="snowball-name">${b.name || b.type}</div><div class="snowball-detail">+${calcDailyIncome(b,inflation).toFixed(4)} PLN/dzień</div></div><div class="snowball-days">−${saving !== null ? formatDays(saving) : '-'}</div></div>`;
+    return `<div class="snowball-row"><div style="min-width:0;flex:1;"><div class="snowball-name">${b.name || b.type}</div><div class="snowball-detail">${b.date} · +${calcDailyIncome(b,inflation).toFixed(4)} PLN/dzień</div></div><div class="snowball-days">−${saving !== null ? formatDays(saving) : '-'}</div></div>`;
   }).join('');
 
   html += rows;
-  const oneBondDaily = totalDaily / Math.max(1, bonds.reduce((sum,b)=>sum + parseFloat(b.amount)/100,0));
-  html += `<div class="snowball-more"><strong>Jak czytać:</strong> usunięcie każdej obligacji z kalkulacji pokazuje, ile dni wolniej dojdziesz do następnych 100 PLN. To właśnie efekt kuli śnieżnej - większy kapitał → większy dzienny zysk → krótszy kolejny próg.</div>`;
+
+  if (sortedBonds.length > 3) {
+    const hidden = sortedBonds.length - 3;
+    html += `<button class="snowball-toggle" onclick="snowballExpanded = !snowballExpanded; renderSnowball()">${snowballExpanded ? '▲ Zwiń listę' : '＋ Więcej · pokaż ' + hidden + ' pozostałe'}</button>`;
+  }
+
+  html += `<div class="snowball-more"><strong>Jak czytać:</strong> usunięcie każdej obligacji z kalkulacji pokazuje, ile dni wolniej dojdziesz do następnych 100 PLN. To właśnie efekt kuli śnieżnej — większy kapitał → większy dzienny zysk → krótszy kolejny próg.</div>`;
   box.innerHTML = html;
 }
 
